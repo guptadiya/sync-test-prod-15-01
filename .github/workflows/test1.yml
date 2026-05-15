@@ -1,0 +1,19 @@
+name: abc Vendor Sync
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync-vendor:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout internal repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0

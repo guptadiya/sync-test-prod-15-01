@@ -1,0 +1,37 @@
+{
+  "name": "@pepsico/nextjs",
+  "version": "1.0.0",
+  "description": "PepsiCo Next.js Application",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "format": "prettier --write src",
+    "format:check": "prettier --check src"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^6.1.4",
+    "jsdom": "^22.1.0",
+    "eslint": "^8.52.0",
+    "@eslint/eslintrc": "^3.0.0",
+    "eslint-config-next": "^15.0.0",
+    "prettier": "^3.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
