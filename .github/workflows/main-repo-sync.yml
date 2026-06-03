@@ -78,19 +78,20 @@ jobs:
         run: |
           git fetch vendor ${BRANCH_NAME}
 
-      - name: Remove internal workflow file
-        run: |
-          rm -f .github/workflows/notify-pep.yml
-          git add .github/workflows/notify-pep.yml || true
-          git commit -m "Remove internal workflow before sync push" || true
-          
       - name: Merge vendor branch into local branch
         run: |
           git checkout -B ${BRANCH_NAME}
+      
           git merge vendor/${BRANCH_NAME} \
-          --allow-unrelated-histories \
-          -X theirs \
-          -m "Auto sync vendor ${BRANCH_NAME}"
+            --allow-unrelated-histories \
+            -X theirs \
+            --no-commit || true
+      
+          git rm -f .github/workflows/notify-pep.yml || true
+      
+          git add .
+      
+          git commit -m "Auto sync vendor ${BRANCH_NAME}" || true
           
       - name: Configure origin remote
         env:
