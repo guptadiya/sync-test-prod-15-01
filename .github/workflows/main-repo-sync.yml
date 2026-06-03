@@ -2,11 +2,15 @@ name: Vendor Sync
 on:
   repository_dispatch:
     types:
-      - BY-main-updated
+      - BY-branch-updated
   workflow_dispatch:
+  
 jobs:
   sync-vendor:
     runs-on: ubuntu-latest
+
+    env:
+      BRANCH_NAME: ${{ github.event.client_payload.branch || 'main' }}
 
     permissions:
       contents: write
@@ -70,17 +74,17 @@ jobs:
           "AUTHORIZATION: basic $(echo -n x-access-token:${TOKEN} | base64)"
 
 
-      - name: Fetch vendor main
+      - name: Fetch vendor branch
         run: |
-          git fetch vendor main
+          git fetch vendor ${BRANCH_NAME}
           
-      - name: Merge vendor main into local main
+      - name: Merge vendor branch into local branch
         run: |
-          git checkout main
-          git merge vendor/main \
+          git checkout -B ${BRANCH_NAME}
+          git merge vendor/${BRANCH_NAME} \
           --allow-unrelated-histories \
           -X theirs \
-          -m "Auto sync vendor main into internal main"
+          -m "Auto sync vendor ${BRANCH_NAME}"
           
       - name: Remove internal workflow file
         run: |
@@ -95,6 +99,6 @@ jobs:
           git remote set-url origin \
           https://x-access-token:${TOKEN}@github.com/GitHubActionsPOC/gh-blue-yonder-testing-prod-15-02.git
           
-      - name: Push directly to main
+      - name: Push directly to target branch
         run: |
-          git push origin main --force
+          git push origin ${BRANCH_NAME} --force
