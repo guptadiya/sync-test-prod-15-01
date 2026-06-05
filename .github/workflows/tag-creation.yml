@@ -1,0 +1,56 @@
+name: Create BYReady Tag
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Feature Branch
+        run: |
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+
+          if [[ ! "$BRANCH_NAME" =~ ^feature/ ]]; then
+            echo "This workflow can only run from feature branches."
+            exit 1
+          fi
+
+      - name: Create BYReady Tag
+        run: |
+          git fetch --tags
+
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+
+          # Convert branch name to safe format
+          SAFE_BRANCH=$(echo "$BRANCH_NAME" | sed 's#/#-#g')
+
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git config user.name "${{ github.actor }}"
+
+          # Find tags created for this branch
+          EXISTING_COUNT=$(git tag -l "${SAFE_BRANCH}-BYReady*" | wc -l)
+
+          if [ "$EXISTING_COUNT" -eq 0 ]; then
+            DISPLAY_TAG="BYReady"
+            ACTUAL_TAG="${SAFE_BRANCH}-BYReady"
+          else
+            DISPLAY_TAG="BYReady${EXISTING_COUNT}"
+            ACTUAL_TAG="${SAFE_BRANCH}-BYReady${EXISTING_COUNT}"
+          fi
+
+          echo "Creating tag: $ACTUAL_TAG"
+
+          git tag -a "$ACTUAL_TAG" -m "$DISPLAY_TAG created for $BRANCH_NAME"
+          git push origin "$ACTUAL_TAG"
+
+          echo "Tag created successfully"
