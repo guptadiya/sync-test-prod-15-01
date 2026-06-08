@@ -1,0 +1,85 @@
+name: Sync Approved Branch to Vendor Repo F2F
+
+on:
+  push:
+    tags:
+      - '*-BYApproved'
+
+jobs:
+  sync-to-vendor:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+
+      - name: Extract branch name from tag
+        id: extract_branch
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          BRANCH_NAME="${TAG_NAME%-BYApproved}"
+
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          echo "Tag: $TAG_NAME"
+          echo "Branch: $BRANCH_NAME"
+
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.extract_branch.outputs.branch_name }}
+          fetch-depth: 0
+
+      - name: Generate GitHub App token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.VENDOR_APP_ID }}
+          private-key: ${{ secrets.VENDOR_APP_PRIVATE_KEY }}
+          owner: guptadiya
+          repositories: sync-test-prod-15-01
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "repo-sync-bot"
+          git config --global user.email "repo-sync-bot@users.noreply.github.com"
+
+      - name: Configure vendor remote
+        env:
+          TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          git remote remove vendor || true
+
+          git remote add vendor \
+          "https://x-access-token:${TOKEN}@github.com/guptadiya/sync-test-prod-15-01.git"
+
+      - name: Fetch vendor repository
+        run: |
+          git fetch vendor || true
+
+      - name: Create vendor branch if not exists
+        run: |
+          BRANCH="${{ steps.extract_branch.outputs.branch_name }}"
+
+          if git ls-remote --heads vendor "$BRANCH" | grep "$BRANCH"; then
+            echo "Branch already exists in vendor repo"
+          else
+            echo "Branch does not exist in vendor repo"
+          fi
+
+      - name: Remove internal workflow file
+        run: |
+          rm -f .github/workflows/sync-approved-branch.yml
+
+          git add .github/workflows/sync-approved-branch.yml || true
+
+          git commit -m "Remove internal workflow before vendor sync" || true
+
+      - name: Push branch to vendor repository
+        run: |
+          BRANCH="${{ steps.extract_branch.outputs.branch_name }}"
+
+          git push vendor \
+            HEAD:refs/heads/$BRANCH \
+            --force
