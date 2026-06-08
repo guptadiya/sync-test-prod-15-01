@@ -1,6 +1,7 @@
 name: Sync Approved Branch to Vendor Repo F2F
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - '**'
