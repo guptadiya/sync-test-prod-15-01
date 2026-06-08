@@ -18,7 +18,7 @@ jobs:
         id: extract_branch
         run: |
           TAG_NAME="${GITHUB_REF_NAME}"
-          BRANCH_NAME="${TAG_NAME%-BYApproved}"
+          BRANCH_NAME="${TAG_NAME%-Ready}"
 
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
