@@ -3,7 +3,7 @@ name: Sync Approved Branch to Vendor Repo F2F
 on:
   push:
     tags:
-      - '*-BYApproved'
+      - '*-BYReady*'
 
 jobs:
   sync-to-vendor:
@@ -70,9 +70,9 @@ jobs:
 
       - name: Remove internal workflow file
         run: |
-          rm -f .github/workflows/sync-approved-branch.yml
+          rm -f .github/workflows/tag-to-repo-sync.yml
 
-          git add .github/workflows/sync-approved-branch.yml || true
+          git add .github/workflows/tag-to-repo-sync.yml || true
 
           git commit -m "Remove internal workflow before vendor sync" || true
 
