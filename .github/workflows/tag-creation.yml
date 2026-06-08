@@ -24,6 +24,14 @@ jobs:
             echo "This workflow can only run from feature branches."
             exit 1
           fi
+      - name: Generate Internal GitHub App token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SYNC_APP_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: GitHubActionsPOC
+          repositories: gh-blue-yonder-testing-prod-15-02
 
       - name: Create BYReady Tag
         run: |
@@ -51,6 +59,8 @@ jobs:
           echo "Creating tag: $ACTUAL_TAG"
 
           git tag -a "$ACTUAL_TAG" -m "$DISPLAY_TAG created for $BRANCH_NAME"
+          git remote set-url origin \"https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/${{ github.repository }}.git"
+
           git push origin "$ACTUAL_TAG"
 
           echo "Tag created successfully"
