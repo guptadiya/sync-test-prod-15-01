@@ -26,3 +26,6 @@ Commit Test : 05:50
 Commit Test : 06:06
 Commit Test : 06:17
 Commit Test : 06:24
+
+
+For example i am making a commit here 
