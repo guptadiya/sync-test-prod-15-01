@@ -3,7 +3,7 @@ name: BYReady Trigger
 on:
   push:
     tags:
-      - '*-BYReady'
+      - '**-BYReady'
 
 jobs:
   test:
