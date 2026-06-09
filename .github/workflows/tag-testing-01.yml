@@ -1,0 +1,28 @@
+name: Create BYReady Tag
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Tag
+        run: |
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+          TAG_NAME="${BRANCH_NAME}-BYReady"
+
+          echo "Creating tag: $TAG_NAME"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
