@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Echo Message
+      - name: Echo Information
         run: |
           echo "BYReady tag detected!"
           echo "Tag Name: ${{ github.ref_name }}"
