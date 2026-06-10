@@ -1,0 +1,25 @@
+name: Create BYReady Tag on PR Approval
+
+on:
+  pull_request_review:
+    types:
+      - submitted
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  create-byready-tag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check PR approval conditions
+        if: |
+          github.event.review.state == 'approved' &&
+          github.event.pull_request.base.ref == 'develop' &&
+          startsWith(github.event.pull_request.head.ref, 'feature/')
+        run: |
+          echo "PR Approved"
+          echo "Source Branch: ${{ github.event.pull_request.head.ref }}"
+          echo "Target Branch: ${{ github.event.pull_request.base.ref }}"
