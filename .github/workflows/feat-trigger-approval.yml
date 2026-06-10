@@ -1,0 +1,91 @@
+name: Workflow Sync Final
+
+on:
+  pull_request_review:
+    types:
+      - submitted
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  create-byready-tag:
+    if: |
+      github.event.review.state == 'approved' &&
+      github.event.pull_request.base.ref == 'develop' &&
+      startsWith(github.event.pull_request.head.ref, 'feature/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Get branch name
+        id: branch
+        run: |
+          echo "name=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+
+      - name: Generate GitHub App token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.VENDOR_APP_ID }}
+          private-key: ${{ secrets.VENDOR_APP_PRIVATE_KEY }}
+          owner: guptadiya
+          repositories: sync-test-prod-15-01
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "repo-sync-bot"
+          git config --global user.email "repo-sync-bot@users.noreply.github.com"
+
+      - name: Configure vendor remote
+        env:
+          TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          git remote add vendor \
+            "https://x-access-token:${TOKEN}@github.com/guptadiya/sync-test-prod-15-01.git"
+
+      - name: Check if branch exists in vendor repo
+        id: branch_check
+        run: |
+          BRANCH="${{ steps.branch.outputs.name }}"
+
+          if git ls-remote --heads vendor "$BRANCH" | grep -q "$BRANCH"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create vendor branch if missing
+        if: steps.branch_check.outputs.exists == 'false'
+        run: |
+          BRANCH="${{ steps.branch.outputs.name }}"
+          git checkout "$BRANCH"
+          git push vendor HEAD:refs/heads/${BRANCH}
+
+      - name: Fetch vendor branch
+        if: steps.branch_check.outputs.exists == 'true'
+        run: |
+          git fetch vendor "${{ steps.branch.outputs.name }}"
+
+      - name: Sync source branch to vendor branch
+        if: steps.branch_check.outputs.exists == 'true'
+        run: |
+          BRANCH="${{ steps.branch.outputs.name }}"
+          git push vendor HEAD:refs/heads/${BRANCH} --force
+
+      - name: Remove internal workflow file
+        run: |
+          rm -f .github/workflows/main-repo-sync.yml
+          git add .github/workflows/main-repo-sync.yml || true
+          git commit -m "Remove internal workflow before vendor sync" || true
+
+      - name: Push to vendor branch
+        run: |
+          BRANCH="${{ steps.branch.outputs.name }}"
+          git push vendor "$BRANCH"
