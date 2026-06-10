@@ -35,7 +35,7 @@ jobs:
           BRANCH: ${{ github.ref_name }}
         run: |
           gh api \
-            repos/ORG2/REPO_B/dispatches \
+            repos/GitHubActionsPOC/gh-blue-yonder-testing-prod-15-02/dispatches \
             --method POST \
             -f event_type=delete-feature-branch \
             -F client_payload[branch]=$BRANCH
