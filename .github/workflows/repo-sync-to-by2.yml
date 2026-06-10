@@ -1,0 +1,101 @@
+name: Sync Feature Branch to Vendor Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: "Feature branch to sync (e.g. feature/my-feature)"
+        required: true
+        type: string
+
+jobs:
+  sync-to-vendor:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch_name }}
+          fetch-depth: 0
+
+      - name: Generate GitHub App token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.VENDOR_APP_ID }}
+          private-key: ${{ secrets.VENDOR_APP_PRIVATE_KEY }}
+          owner: guptadiya
+          repositories: sync-test-prod-15-01
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "repo-sync-bot"
+          git config --global user.email "repo-sync-bot@users.noreply.github.com"
+
+      - name: Configure vendor remote
+        env:
+          TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          git remote add vendor \
+            "https://x-access-token:${TOKEN}@github.com/guptadiya/sync-test-prod-15-01.git"
+
+      - name: Check if branch exists in vendor repo
+        id: branch_check
+        run: |
+          BRANCH="${{ inputs.branch_name }}"
+
+          if git ls-remote --heads vendor "$BRANCH" | grep -q "$BRANCH"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create vendor branch if missing
+        if: steps.branch_check.outputs.exists == 'false'
+        run: |
+          BRANCH="${{ inputs.branch_name }}"
+
+          git checkout "${BRANCH}"
+
+          git push vendor \
+            HEAD:refs/heads/${BRANCH}
+
+      - name: Fetch vendor branch
+        if: steps.branch_check.outputs.exists == 'true'
+        run: |
+          git fetch vendor "${{ inputs.branch_name }}"
+
+      - name: Sync source branch to vendor branch
+        if: steps.branch_check.outputs.exists == 'true'
+        run: |
+          BRANCH="${{ inputs.branch_name }}"
+
+          git checkout -B "$BRANCH" "vendor/$BRANCH"
+
+          git remote rename origin source
+
+          git fetch source
+
+          git merge "source/$BRANCH" \
+            --allow-unrelated-histories \
+            -X theirs \
+            -m "Sync source branch"
+
+      - name: Remove internal workflow file
+        run: |
+          rm -f .github/workflows/main-repo-sync.yml
+
+          git add .github/workflows/main-repo-sync.yml || true
+
+          git commit -m "Remove internal workflow before vendor sync" || true
+
+      - name: Push to vendor branch
+        run: |
+          BRANCH="${{ inputs.branch_name }}"
+
+          git push vendor "$BRANCH"
