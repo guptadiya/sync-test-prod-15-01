@@ -89,3 +89,18 @@ jobs:
         run: |
           BRANCH="${{ steps.branch.outputs.name }}"
           git push vendor "$BRANCH"
+
+      - name: Create PR in vendor repo
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          BRANCH="${{ steps.branch.outputs.name }}"
+          BASE="${{ github.event.pull_request.base.ref }}"
+          TITLE="${{ github.event.pull_request.title }}"
+      
+          gh pr create \
+            --repo guptadiya/sync-test-prod-15-01 \
+            --base "$BASE" \
+            --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "${{ github.event.pull_request.body }}"
