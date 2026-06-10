@@ -3,10 +3,10 @@ name: Sync develop branch to Vendor Repo
 on:
   workflow_dispatch:
 
-  push:
-    branches:
-      - develop
-jobs:
+#   push:
+#     branches:
+#       - develop
+# jobs:
   sync-to-vendor:
     runs-on: ubuntu-latest
 
