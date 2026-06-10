@@ -54,9 +54,6 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Check remotes
-        run: git remote -v
-
       - name: Create vendor branch if missing
         if: steps.branch_check.outputs.exists == 'false'
         run: |
@@ -75,18 +72,9 @@ jobs:
       - name: Sync source branch to vendor branch
         if: steps.branch_check.outputs.exists == 'true'
         run: |
-          BRANCH="${{ steps.branch.outputs.name }}"
-
-          git checkout -B "$BRANCH" "vendor/$BRANCH"
-
-          git remote rename origin source
-
-          git fetch source
-
-          git merge "source/$BRANCH" \
-            --allow-unrelated-histories \
-            -X theirs \
-            -m "Sync source branch"
+          BRANCH="${GITHUB_REF_NAME}"
+      
+          git push vendor HEAD:refs/heads/${BRANCH} --force
 
       - name: Remove internal workflow file
         run: |
