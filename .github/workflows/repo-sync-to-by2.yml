@@ -2,11 +2,6 @@ name: Sync Feature Branch to Vendor Repo
 
 on:
   workflow_dispatch:
-    inputs:
-      branch_name:
-        description: "Feature branch to sync (e.g. feature/my-feature)"
-        required: true
-        type: string
 
 jobs:
   sync-to-vendor:
@@ -20,9 +15,12 @@ jobs:
       - name: Checkout source repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.branch_name }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Get branch name
+        id: branch
+        run: |
+          echo "name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
 
       - name: Generate GitHub App token
         id: generate_token
@@ -48,7 +46,7 @@ jobs:
       - name: Check if branch exists in vendor repo
         id: branch_check
         run: |
-          BRANCH="${{ inputs.branch_name }}"
+          BRANCH="${{ steps.branch.outputs.name }}"
 
           if git ls-remote --heads vendor "$BRANCH" | grep -q "$BRANCH"; then
             echo "exists=true" >> $GITHUB_OUTPUT
@@ -62,7 +60,7 @@ jobs:
       - name: Create vendor branch if missing
         if: steps.branch_check.outputs.exists == 'false'
         run: |
-          BRANCH="${{ inputs.branch_name }}"
+          BRANCH="${{ steps.branch.outputs.name }}"
 
           git checkout "${BRANCH}"
 
@@ -72,12 +70,12 @@ jobs:
       - name: Fetch vendor branch
         if: steps.branch_check.outputs.exists == 'true'
         run: |
-          git fetch vendor "${{ inputs.branch_name }}"
+          git fetch vendor "${{ steps.branch.outputs.name }}"
 
       - name: Sync source branch to vendor branch
         if: steps.branch_check.outputs.exists == 'true'
         run: |
-          BRANCH="${{ inputs.branch_name }}"
+          BRANCH="${{ steps.branch.outputs.name }}"
 
           git checkout -B "$BRANCH" "vendor/$BRANCH"
 
@@ -100,6 +98,6 @@ jobs:
 
       - name: Push to vendor branch
         run: |
-          BRANCH="${{ inputs.branch_name }}"
+          BRANCH="${{ steps.branch.outputs.name }}"
 
           git push vendor "$BRANCH"
