@@ -1,0 +1,41 @@
+name: Notify Repo B
+
+on:
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate branch
+        run: |
+          BRANCH="${GITHUB_REF_NAME}"
+
+          if [[ ! "$BRANCH" =~ ^feature/ ]]; then
+            echo "This workflow can only run from feature/* branches."
+            echo "Current branch: $BRANCH"
+            exit 1
+          fi
+
+      # Generate GitHub App token
+      # Trigger repository_dispatch
+      -  name: Generate GitHub App token
+         id: app-token
+         uses: actions/create-github-app-token@v1
+         with:
+          app-id: ${{ secrets.CUSTOMER_APP_ID }}
+          private-key: ${{ secrets.CUSTOMER_APP_PRIVATE_KEY }}
+          owner: GitHubActionsPOC
+          repositories: gh-blue-yonder-testing-prod-15-02
+
+      - name: Trigger Repo B
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          gh api \
+            repos/ORG2/REPO_B/dispatches \
+            --method POST \
+            -f event_type=delete-feature-branch \
+            -F client_payload[branch]=$BRANCH
