@@ -22,6 +22,7 @@ jobs:
         with:
           ref: ${{ inputs.branch_name }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Generate GitHub App token
         id: generate_token
@@ -43,8 +44,7 @@ jobs:
         run: |
           git remote add vendor \
             "https://x-access-token:${TOKEN}@github.com/guptadiya/sync-test-prod-15-01.git"
-      - name: Check remotes
-        run: git remote -v
+      
       - name: Check if branch exists in vendor repo
         id: branch_check
         run: |
@@ -55,6 +55,9 @@ jobs:
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Check remotes
+        run: git remote -v
 
       - name: Create vendor branch if missing
         if: steps.branch_check.outputs.exists == 'false'
