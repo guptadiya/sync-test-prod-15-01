@@ -1,4 +1,136 @@
-name: Workflow Sync Final
+# name: Workflow Sync Final
+
+# on:
+#   pull_request_review:
+#     types:
+#       - submitted
+
+# permissions:
+#   contents: write
+#   pull-requests: read
+
+# jobs:
+#   create-byready-tag:
+#     if: |
+#       github.event.review.state == 'approved' &&
+#       github.event.pull_request.base.ref == 'develop' &&
+#       startsWith(github.event.pull_request.head.ref, 'feature/')
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout source repository
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Create BYReady Tag
+#         run: |
+#           git fetch --tags
+
+#           BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+
+#           git config user.name "github-actions[bot]"
+#           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+#           EXISTING_COUNT=$(git tag -l "${BRANCH_NAME}-BYReady*" | wc -l)
+
+#           if [ "$EXISTING_COUNT" -eq 0 ]; then
+#             TAG_NAME="${BRANCH_NAME}-BYReady"
+#           else
+#             TAG_NAME="${BRANCH_NAME}-BYReady${EXISTING_COUNT}"
+#           fi
+
+#           echo "Creating tag: $TAG_NAME"
+
+#           git tag "$TAG_NAME"
+#           git push origin "$TAG_NAME"
+#       - name: Checkout source repository
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+#           persist-credentials: false
+
+#       - name: Get branch name
+#         id: branch
+#         run: |
+#           echo "name=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+
+#       - name: Generate Vendor GitHub App token
+#         id: generate_token
+#         uses: actions/create-github-app-token@v1
+#         with:
+#           app-id: ${{ secrets.VENDOR_APP_ID }}
+#           private-key: ${{ secrets.VENDOR_APP_PRIVATE_KEY }}
+#           owner: guptadiya
+#           repositories: sync-test-prod-15-01
+
+#       - name: Configure Git identity
+#         run: |
+#           git config --global user.name "repo-sync-bot"
+#           git config --global user.email "repo-sync-bot@users.noreply.github.com"
+
+#       - name: Configure vendor remote
+#         env:
+#           TOKEN: ${{ steps.generate_token.outputs.token }}
+#         run: |
+#           git remote add vendor \
+#             "https://x-access-token:${TOKEN}@github.com/guptadiya/sync-test-prod-15-01.git"
+
+#       - name: Check if branch exists in vendor repo
+#         id: branch_check
+#         run: |
+#           BRANCH="${{ steps.branch.outputs.name }}"
+
+#           if git ls-remote --heads vendor "$BRANCH" | grep -q "$BRANCH"; then
+#             echo "exists=true" >> $GITHUB_OUTPUT
+#           else
+#             echo "exists=false" >> $GITHUB_OUTPUT
+#           fi
+
+#       - name: Create vendor branch if missing
+#         if: steps.branch_check.outputs.exists == 'false'
+#         run: |
+#           BRANCH="${{ steps.branch.outputs.name }}"
+#           git push vendor "origin/$BRANCH:refs/heads/$BRANCH"
+
+#       - name: Sync source branch to vendor branch
+#         if: steps.branch_check.outputs.exists == 'true'
+#         run: |
+#           BRANCH="${{ steps.branch.outputs.name }}"
+#           git push vendor "origin/$BRANCH:refs/heads/$BRANCH" --force
+
+#       - name: Remove internal workflow file
+#         run: |
+#           rm -f .github/workflows/main-repo-sync.yml
+#           git add .github/workflows/main-repo-sync.yml || true
+#           git commit -m "Remove internal workflow before vendor sync" || true
+
+#       - name: Create PR in vendor repo
+#         env:
+#           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+#         run: |
+#           BRANCH="${{ steps.branch.outputs.name }}"
+
+#           EXISTING_PR=$(gh pr list \
+#             --repo guptadiya/sync-test-prod-15-01 \
+#             --head "$BRANCH" \
+#             --state open \
+#             --json number \
+#             --jq '.[0].number')
+
+#           if [ -n "$EXISTING_PR" ]; then
+#             echo "PR already exists: $EXISTING_PR"
+#             exit 0
+#           fi
+
+#           gh pr create \
+#             --repo guptadiya/sync-test-prod-15-01 \
+#             --base "${{ github.event.pull_request.base.ref }}" \
+#             --head "$BRANCH" \
+#             --title "${{ github.event.pull_request.title }}" \
+#             --body "${{ github.event.pull_request.body }}"
+
+name: Workflow Sync Feature
 
 on:
   pull_request_review:
@@ -10,7 +142,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  create-byready-tag:
+  pr-approval-check:
     if: |
       github.event.review.state == 'approved' &&
       github.event.pull_request.base.ref == 'develop' &&
@@ -18,11 +150,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout the PR HEAD commit explicitly
       - name: Checkout source repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
 
+      # Create BYReady tag
       - name: Create BYReady Tag
         run: |
           git fetch --tags
@@ -44,10 +179,13 @@ jobs:
 
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
+
+      # Re-checkout for GitHub App authentication flow
       - name: Checkout source repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Get branch name
@@ -76,6 +214,17 @@ jobs:
           git remote add vendor \
             "https://x-access-token:${TOKEN}@github.com/guptadiya/sync-test-prod-15-01.git"
 
+      # Remove workflow BEFORE syncing to vendor
+      - name: Remove internal workflow file
+        run: |
+          rm -f .github/workflows/main-repo-sync.yml
+
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Remove internal workflow before vendor sync"
+          fi
+
       - name: Check if branch exists in vendor repo
         id: branch_check
         run: |
@@ -91,19 +240,13 @@ jobs:
         if: steps.branch_check.outputs.exists == 'false'
         run: |
           BRANCH="${{ steps.branch.outputs.name }}"
-          git push vendor "origin/$BRANCH:refs/heads/$BRANCH"
+          git push vendor "HEAD:refs/heads/$BRANCH"
 
       - name: Sync source branch to vendor branch
         if: steps.branch_check.outputs.exists == 'true'
         run: |
           BRANCH="${{ steps.branch.outputs.name }}"
-          git push vendor "origin/$BRANCH:refs/heads/$BRANCH" --force
-
-      - name: Remove internal workflow file
-        run: |
-          rm -f .github/workflows/main-repo-sync.yml
-          git add .github/workflows/main-repo-sync.yml || true
-          git commit -m "Remove internal workflow before vendor sync" || true
+          git push vendor "HEAD:refs/heads/$BRANCH" --force
 
       - name: Create PR in vendor repo
         env:
