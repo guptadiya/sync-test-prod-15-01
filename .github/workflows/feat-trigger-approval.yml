@@ -18,60 +18,54 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
+      # Create BYReady tag in source repository
       - name: Generate GitHub App Token
-        id: app-token
+        id: app_token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.SYNC_APP_ID }}
           private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
-      
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          fetch-depth: 0
-          persist-credentials: false
-      
+
+      - name: Configure origin for tag push
+        run: |
+          git remote set-url origin \
+            https://x-access-token:${{ steps.app_token.outputs.token }}@github.com/${{ github.repository }}.git
+
       - name: Create BYReady Tag
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git fetch --tags
-      
+
           BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
-      
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-      
+
           EXISTING_COUNT=$(git tag -l "${BRANCH_NAME}-BYReady*" | wc -l)
-      
+
           if [ "$EXISTING_COUNT" -eq 0 ]; then
             TAG_NAME="${BRANCH_NAME}-BYReady"
           else
             TAG_NAME="${BRANCH_NAME}-BYReady${EXISTING_COUNT}"
           fi
-      
-          echo "Creating tag: $TAG_NAME"
-      
-          git tag "$TAG_NAME"
-      
-          git push \
-            https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} \
-            "$TAG_NAME"
-            
-      # - name: Checkout source repository
-      #   uses: actions/checkout@v4
-      #   with:
-      #     fetch-depth: 0
-      #     persist-credentials: false
 
+          echo "Creating tag: $TAG_NAME"
+
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+
+      # Vendor sync
       - name: Get branch name
         id: branch
         run: |
           echo "name=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
 
-      - name: Generate GitHub App token
+      - name: Generate Vendor GitHub App Token
         id: generate_token
         uses: actions/create-github-app-token@v1
         with:
@@ -107,19 +101,13 @@ jobs:
         if: steps.branch_check.outputs.exists == 'false'
         run: |
           BRANCH="${{ steps.branch.outputs.name }}"
-          git checkout "$BRANCH"
-          git push vendor HEAD:refs/heads/${BRANCH}
-
-      - name: Fetch vendor branch
-        if: steps.branch_check.outputs.exists == 'true'
-        run: |
-          git fetch vendor "${{ steps.branch.outputs.name }}"
+          git push vendor "origin/$BRANCH:refs/heads/$BRANCH"
 
       - name: Sync source branch to vendor branch
         if: steps.branch_check.outputs.exists == 'true'
         run: |
           BRANCH="${{ steps.branch.outputs.name }}"
-          git push vendor HEAD:refs/heads/${BRANCH} --force
+          git push vendor "origin/$BRANCH:refs/heads/$BRANCH" --force
 
       - name: Remove internal workflow file
         run: |
@@ -127,22 +115,27 @@ jobs:
           git add .github/workflows/main-repo-sync.yml || true
           git commit -m "Remove internal workflow before vendor sync" || true
 
-      - name: Push to vendor branch
-        run: |
-          BRANCH="${{ steps.branch.outputs.name }}"
-          git push vendor "$BRANCH"
-
       - name: Create PR in vendor repo
         env:
           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
           BRANCH="${{ steps.branch.outputs.name }}"
-          BASE="${{ github.event.pull_request.base.ref }}"
-          TITLE="${{ github.event.pull_request.title }}"
-      
+
+          EXISTING_PR=$(gh pr list \
+            --repo guptadiya/sync-test-prod-15-01 \
+            --head "$BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number')
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR already exists: $EXISTING_PR"
+            exit 0
+          fi
+
           gh pr create \
             --repo guptadiya/sync-test-prod-15-01 \
-            --base "$BASE" \
+            --base "${{ github.event.pull_request.base.ref }}" \
             --head "$BRANCH" \
-            --title "$TITLE" \
+            --title "${{ github.event.pull_request.title }}" \
             --body "${{ github.event.pull_request.body }}"
