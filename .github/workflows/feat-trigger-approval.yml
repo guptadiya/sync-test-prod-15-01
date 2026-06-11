@@ -18,11 +18,53 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source repository
+
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SYNC_APP_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+      
+      - name: Checkout
         uses: actions/checkout@v4
         with:
+          token: ${{ steps.app-token.outputs.token }}
           fetch-depth: 0
           persist-credentials: false
+      
+      - name: Create BYReady Tag
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git fetch --tags
+      
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+      
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+          EXISTING_COUNT=$(git tag -l "${BRANCH_NAME}-BYReady*" | wc -l)
+      
+          if [ "$EXISTING_COUNT" -eq 0 ]; then
+            TAG_NAME="${BRANCH_NAME}-BYReady"
+          else
+            TAG_NAME="${BRANCH_NAME}-BYReady${EXISTING_COUNT}"
+          fi
+      
+          echo "Creating tag: $TAG_NAME"
+      
+          git tag "$TAG_NAME"
+      
+          git push \
+            https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} \
+            "$TAG_NAME"
+            
+      # - name: Checkout source repository
+      #   uses: actions/checkout@v4
+      #   with:
+      #     fetch-depth: 0
+      #     persist-credentials: false
 
       - name: Get branch name
         id: branch
