@@ -3,9 +3,9 @@ name: Notify Pepsico Repo
 on:
   push:
     branches:
-      - main
-      - develop
-      - release
+      - 'main**'
+      - 'develop**'
+      - 'release**'
 
 jobs:
   notify:
