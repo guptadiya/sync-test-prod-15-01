@@ -156,6 +156,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check approvals from required teams
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+          ORG=${{ github.repository_owner }}
+
+          DEVOPS_TEAMS=("tsep-by-devops" "tsep-by-developers")
+          CAR1B_TEAMS=("tsep-by-car1b-dev")
+
+          APPROVED_USERS=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+            --jq '[.[] | select(.state=="APPROVED") | .user.login] | unique | .[]')
+
+          DEVOPS_APPROVER=""
+          CAR1B_APPROVER=""
+
+          is_team_member() {
+            local team=$1
+            local user=$2
+            gh api "orgs/$ORG/teams/$team/memberships/$user" --jq '.state' 2>/dev/null
+          }
+
+          for USER in $APPROVED_USERS; do
+            IN_DEVOPS_TEAM=false
+            IN_CAR1B_TEAM=false
+
+            for TEAM in "${DEVOPS_TEAMS[@]}"; do
+              if [ "$(is_team_member "$TEAM" "$USER")" == "active" ]; then
+                IN_DEVOPS_TEAM=true
+                break
+              fi
+            done
+
+            for TEAM in "${CAR1B_TEAMS[@]}"; do
+              if [ "$(is_team_member "$TEAM" "$USER")" == "active" ]; then
+                IN_CAR1B_TEAM=true
+                break
+              fi
+            done
+
+            echo "$USER => devops/developers:$IN_DEVOPS_TEAM car1b-developers:$IN_CAR1B_TEAM"
+
+            if [ "$IN_DEVOPS_TEAM" == "true" ] && [ -z "$DEVOPS_APPROVER" ]; then
+              DEVOPS_APPROVER="$USER"
+            elif [ "$IN_CAR1B_TEAM" == "true" ] && [ -z "$CAR1B_APPROVER" ]; then
+              CAR1B_APPROVER="$USER"
+            fi
+          done
+
+          echo "Devops/developers approver: ${DEVOPS_APPROVER:-none}"
+          echo "Car1b-developers approver: ${CAR1B_APPROVER:-none}"
+
+          if [ -z "$DEVOPS_APPROVER" ] || [ -z "$CAR1B_APPROVER" ]; then
+            echo "::error::Required approvals missing. Need 1 approval from tsep-by-wms-devops/tsep-by-wms-developers AND 1 approval from tsep-by-wms-car1b-developers."
+            exit 1
+          fi
+          
       - name: Validate branch mapping
         run: |
           BASE_REF="${{ github.event.pull_request.base.ref }}"
