@@ -145,11 +145,31 @@ jobs:
   pr-approval-check:
     if: |
       github.event.review.state == 'approved' &&
-      github.event.pull_request.base.ref == 'develop' &&
-      startsWith(github.event.pull_request.head.ref, 'feature/')
+      (
+        github.event.pull_request.base.ref == 'develop' ||
+        github.event.pull_request.base.ref == 'develop-p3'
+      ) &&
+      (
+        startsWith(github.event.pull_request.head.ref, 'feature/') ||
+        startsWith(github.event.pull_request.head.ref, 'feature-p3/')
+      )
     runs-on: ubuntu-latest
 
     steps:
+      - name: Validate branch mapping
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          HEAD_REF="${{ github.event.pull_request.head.ref }}"
+
+          if [[ "$HEAD_REF" == feature/* && "$BASE_REF" == "develop" ]]; then
+            echo "Valid mapping: $HEAD_REF -> $BASE_REF"
+          elif [[ "$HEAD_REF" == feature-p1/* && "$BASE_REF" == "develop-p3" ]]; then
+            echo "Valid mapping: $HEAD_REF -> $BASE_REF"
+          else
+            echo "::error::Invalid branch mapping: '$HEAD_REF' -> '$BASE_REF'. Allowed: feature/* -> develop, feature-p1/* -> develop-p1"
+            exit 1
+          fi
+          
       # Checkout the PR HEAD commit explicitly
       - name: Checkout source repository
         uses: actions/checkout@v4
