@@ -158,7 +158,8 @@ jobs:
     steps:
       - name: Check approvals from required teams
         env:
-          GH_TOKEN: ${{ secrets.ORG_READ_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
+          ORG_TOKEN: ${{ secrets.ORG_READ_TOKEN }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
@@ -176,7 +177,7 @@ jobs:
           is_team_member() {
             local team=$1
             local user=$2
-            gh api "orgs/$ORG/teams/$team/memberships/$user" --jq '.state' 2>/dev/null
+            GH_TOKEN="$ORG_TOKEN" gh api "orgs/$ORG/teams/$team/memberships/$user" --jq '.state' 2>/dev/null
           }
 
           for USER in $APPROVED_USERS; do
