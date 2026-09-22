@@ -158,7 +158,7 @@ jobs:
     steps:
       - name: Check approvals from required teams
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.ORG_READ_TOKEN || github.token }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
