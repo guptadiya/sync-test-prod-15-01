@@ -156,10 +156,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Generate Org GitHub App token
+        id: generate_org_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SYNC_APP_ID }}
+          private-key: ${{ secrets.SYNC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          
       - name: Check approvals from required teams
         env:
           GH_TOKEN: ${{ github.token }}
-          ORG_TOKEN: ${{ secrets.ORG_READ_TOKEN }}
+          ORG_TOKEN: ${{ steps.generate_org_token.outputs.token }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
