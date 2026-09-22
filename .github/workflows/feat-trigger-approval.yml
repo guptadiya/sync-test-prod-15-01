@@ -163,10 +163,10 @@ jobs:
 
           if [[ "$HEAD_REF" == feature/* && "$BASE_REF" == "develop" ]]; then
             echo "Valid mapping: $HEAD_REF -> $BASE_REF"
-          elif [[ "$HEAD_REF" == feature-p1/* && "$BASE_REF" == "develop-p3" ]]; then
+          elif [[ "$HEAD_REF" == feature-p3/* && "$BASE_REF" == "develop-p3" ]]; then
             echo "Valid mapping: $HEAD_REF -> $BASE_REF"
           else
-            echo "::error::Invalid branch mapping: '$HEAD_REF' -> '$BASE_REF'. Allowed: feature/* -> develop, feature-p1/* -> develop-p1"
+            echo "::error::Invalid branch mapping: '$HEAD_REF' -> '$BASE_REF'. Allowed: feature/* -> develop, feature-p3/* -> develop-p3"
             exit 1
           fi
           
