@@ -226,6 +226,9 @@ jobs:
           fi
           
       - name: Validate branch mapping
+        env:
+            BASE_REF: ${{ github.event.pull_request.base.ref }}
+            HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
 
