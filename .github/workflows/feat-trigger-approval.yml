@@ -147,11 +147,11 @@ jobs:
       github.event.review.state == 'approved' &&
       (
         github.event.pull_request.base.ref == 'develop' ||
-        github.event.pull_request.base.ref == 'develop-p3'
+        startsWith(github.event.pull_request.base.ref, 'develop-p')
       ) &&
       (
         startsWith(github.event.pull_request.head.ref, 'feature/') ||
-        startsWith(github.event.pull_request.head.ref, 'feature-p3/')
+        startsWith(github.event.pull_request.head.ref, 'feature-p')
       )
     runs-on: ubuntu-latest
 
@@ -172,6 +172,8 @@ jobs:
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
           ORG=${{ github.repository_owner }}
+
+          set -euo pipefail
 
           DEVOPS_TEAMS=("tsep-by-devops" "tsep-by-developers")
           CAR1B_TEAMS=("tsep-by-car1b-dev")
@@ -225,17 +227,58 @@ jobs:
           
       - name: Validate branch mapping
         run: |
-          BASE_REF="${{ github.event.pull_request.base.ref }}"
-          HEAD_REF="${{ github.event.pull_request.head.ref }}"
+          set -euo pipefail
 
-          if [[ "$HEAD_REF" == feature/* && "$BASE_REF" == "develop" ]]; then
-            echo "Valid mapping: $HEAD_REF -> $BASE_REF"
-          elif [[ "$HEAD_REF" == feature-p3/* && "$BASE_REF" == "develop-p3" ]]; then
-            echo "Valid mapping: $HEAD_REF -> $BASE_REF"
+          EXPECTED_BASE=""
+
+          # Standard feature branch
+          if [[ "$HEAD_REF" =~ ^feature/[^/]+$ ]]; then
+            EXPECTED_BASE="develop"
+
+          # Variant feature branch
+          elif [[ "$HEAD_REF" =~ ^feature-(p[0-9]+)/[^/]+$ ]]; then
+            VARIANT="${BASH_REMATCH[1]}"
+            EXPECTED_BASE="develop-${VARIANT}"
+
           else
-            echo "::error::Invalid branch mapping: '$HEAD_REF' -> '$BASE_REF'. Allowed: feature/* -> develop, feature-p3/* -> develop-p3"
+            echo "::error::Invalid source branch '$HEAD_REF'."
+            echo "::error::Allowed patterns:"
+            echo "::error::  feature/<name>"
+            echo "::error::  feature-p<n>/<name>"
             exit 1
           fi
+
+          echo "Source branch  : $HEAD_REF"
+          echo "Target branch  : $BASE_REF"
+          echo "Expected target: $EXPECTED_BASE"
+
+          # -----------------------------------------------------
+          # Validate source -> target relationship
+          # -----------------------------------------------------
+          if [[ "$BASE_REF" != "$EXPECTED_BASE" ]]; then
+            echo "::error::Invalid branch mapping."
+            echo "::error::Source branch : $HEAD_REF"
+            echo "::error::Target branch : $BASE_REF"
+            echo "::error::Expected     : $EXPECTED_BASE"
+            exit 1
+          fi
+
+          # -----------------------------------------------------
+          # Validate allowed target branch taxonomy
+          # -----------------------------------------------------
+          if [[ "$BASE_REF" != "develop" ]] &&
+             ! [[ "$BASE_REF" =~ ^develop-p[0-9]+$ ]]; then
+
+            echo "::error::Invalid target branch '$BASE_REF'."
+            echo "::error::Allowed target patterns:"
+            echo "::error::  develop"
+            echo "::error::  develop-p<n>"
+            exit 1
+          fi
+
+          echo ""
+          echo "Branch mapping validation successful."
+          echo "$HEAD_REF -> $BASE_REF"
           
       # Checkout the PR HEAD commit explicitly
       - name: Checkout source repository
